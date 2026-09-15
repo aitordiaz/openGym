@@ -10,9 +10,22 @@ async function getRestTimerPlugin() {
   if (restTimerPlugin) return restTimerPlugin
   try {
     const { registerPlugin } = await import('@capacitor/core')
-    restTimerPlugin = registerPlugin('RestTimer')
+    const raw = registerPlugin('RestTimer')
+    // Wrap in a plain object so JavaScript Promise resolution does NOT trigger Proxy.then()
+    // ("RestTimer.then() is not implemented on android" - see coach-secrets.js)
+    restTimerPlugin = {
+      setRestTimer: opts => raw.setRestTimer(opts),
+      show: opts => raw.show(opts),
+      dismiss: () => raw.dismiss(),
+      clear: () => raw.clear(),
+      getState: () => raw.getState(),
+      addListener: (name, cb) => raw.addListener(name, cb),
+      requestPermissions: () => (raw.requestPermissions ? raw.requestPermissions() : Promise.resolve({ display: 'granted' })),
+      checkPermissions: () => (raw.checkPermissions ? raw.checkPermissions() : Promise.resolve({ display: 'granted' }))
+    }
     return restTimerPlugin
-  } catch {
+  } catch (e) {
+    console.error('Failed to init RestTimer plugin', e)
     return null
   }
 }
