@@ -36,13 +36,14 @@ public class RestTimerReceiver extends BroadcastReceiver {
 
     public static final int NOTIFICATION_ID_COUNTDOWN = 7001;
     public static final int NOTIFICATION_ID_FINISHED = 7002;
-    public static final String CHANNEL_ID_COUNTDOWN = "rest_timer_countdown";
-    public static final String CHANNEL_ID_FINISHED = "rest_timer_finished";
+    public static final String CHANNEL_ID_COUNTDOWN = "rest_timer_countdown_v2";
+    public static final String CHANNEL_ID_FINISHED = "rest_timer_finished_v2";
 
     @Override
     public void onReceive(Context context, Intent intent) {
         if (intent == null || intent.getAction() == null) return;
         String action = intent.getAction();
+        Log.i(TAG, "onReceive action: " + action);
 
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
 
@@ -90,6 +91,9 @@ public class RestTimerReceiver extends BroadcastReceiver {
     public static int getNotificationSmallIcon(Context context) {
         int resId = context.getResources().getIdentifier("ic_stat_rest_timer", "drawable", context.getPackageName());
         if (resId == 0) {
+            resId = ch.duartesantos.opengym.R.drawable.ic_stat_rest_timer;
+        }
+        if (resId == 0) {
             resId = context.getResources().getIdentifier("ic_stat_icon", "drawable", context.getPackageName());
         }
         if (resId == 0) {
@@ -102,6 +106,11 @@ public class RestTimerReceiver extends BroadcastReceiver {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationManager nm = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
             if (nm == null) return;
+
+            try {
+                nm.deleteNotificationChannel("rest_timer_countdown");
+                nm.deleteNotificationChannel("rest_timer_finished");
+            } catch (Exception ignored) {}
 
             NotificationChannel countdownChannel = new NotificationChannel(
                 CHANNEL_ID_COUNTDOWN,
@@ -180,8 +189,12 @@ public class RestTimerReceiver extends BroadcastReceiver {
             .addAction(0, add15Label, add15PendingIntent)
             .addAction(0, skipLabel, skipPendingIntent);
 
+        boolean enabled = NotificationManagerCompat.from(context).areNotificationsEnabled();
+        Log.i(TAG, "showCountdownNotification: areNotificationsEnabled=" + enabled + ", icon=" + icon + ", endsAt=" + endsAt);
+
         try {
             NotificationManagerCompat.from(context).notify(NOTIFICATION_ID_COUNTDOWN, builder.build());
+            Log.i(TAG, "NotificationManager.notify completed successfully");
         } catch (Throwable e) {
             Log.e(TAG, "Failed to show countdown notification", e);
         }

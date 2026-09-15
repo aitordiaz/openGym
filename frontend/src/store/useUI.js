@@ -96,10 +96,17 @@ export const useUI = create((set, get) => ({
   },
 
   startRest(sec, forIdx) {
-    get().stopRest()
+    clearInterval(timerInt)
+    timerInt = null
+    timerTick = null
+    cancelPushRestTimer()
     // Rest timer set to Off. Stopping and returning rather than starting a zero-length timer
     // keeps every caller honest: the four places that start a rest do not each need to know.
-    if (!(sec > 0)) return
+    if (!(sec > 0)) {
+      set({ timer: null })
+      clearRestNotification()
+      return
+    }
     const endsAt = Date.now() + sec * 1000
     const newTimer = { left: sec, total: sec, endsAt, forIdx }
     set({ timer: newTimer })

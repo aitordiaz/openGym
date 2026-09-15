@@ -96,11 +96,11 @@ export async function showRestNotification(timer) {
   }
 }
 
-export async function clearRestNotification() {
+export async function dismissRestNotification() {
   if (MOBILE) {
     try {
       const plugin = await getRestTimerPlugin()
-      if (plugin) await plugin.clear()
+      if (plugin?.dismiss) await plugin.dismiss()
     } catch {}
     return
   }
@@ -117,6 +117,18 @@ export async function clearRestNotification() {
       }
     } catch {}
   }
+}
+
+export async function clearRestNotification() {
+  if (MOBILE) {
+    try {
+      const plugin = await getRestTimerPlugin()
+      if (plugin) await plugin.clear()
+    } catch {}
+    return
+  }
+
+  await dismissRestNotification()
 }
 
 export async function syncRestTimerFromNative(store) {
@@ -227,7 +239,7 @@ export function initRestNotifications(store) {
   }
 
   const onVisible = () => {
-    clearRestNotification()
+    dismissRestNotification()
     syncRestTimerFromNative(store)
   }
 
