@@ -4,7 +4,7 @@ import { beep, vibrate } from '../lib/sound.js'
 import { api } from '../lib/api.js'
 import { t } from '../lib/i18n.js'
 import { deviceId } from '../lib/push.js'
-import { showRestNotification, clearRestNotification, initRestNotifications } from '../lib/rest-notifications.js'
+import { setRestTimer, showRestNotification, clearRestNotification, initRestNotifications } from '../lib/rest-notifications.js'
 import { useStore } from './useStore.js'
 
 // Fire-and-forget: lets the server push a "rest over" alert if this tab gets suspended
@@ -105,6 +105,7 @@ export const useUI = create((set, get) => ({
     set({ timer: newTimer })
     requestRestNotificationPermission()
     pushRestTimer(sec)
+    setRestTimer(newTimer)
     if (typeof document !== 'undefined' && document.hidden) {
       showRestNotification(newTimer)
     }
@@ -143,6 +144,7 @@ export const useUI = create((set, get) => ({
     const updated = { ...tm, left, total: tm.total + sec, endsAt: tm.endsAt + sec * 1000 }
     set({ timer: updated })
     pushRestTimer(left)
+    setRestTimer(updated)
     if (typeof document !== 'undefined' && document.hidden) {
       showRestNotification(updated)
     }

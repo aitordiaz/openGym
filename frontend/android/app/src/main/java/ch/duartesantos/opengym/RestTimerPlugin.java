@@ -36,8 +36,48 @@ public class RestTimerPlugin extends Plugin {
         super.handleOnDestroy();
     }
 
+    @Override
+    protected void handleOnPause() {
+        super.handleOnPause();
+        checkAndShowBackgroundNotification();
+    }
+
+    @Override
+    protected void handleOnStop() {
+        super.handleOnStop();
+        checkAndShowBackgroundNotification();
+    }
+
+    @Override
+    protected void handleOnResume() {
+        super.handleOnResume();
+        // Clear countdown notification when returning to foreground
+        Context context = getContext();
+        if (context != null) {
+            RestTimerReceiver.cancelCountdownNotification(context);
+        }
+    }
+
+    private void checkAndShowBackgroundNotification() {
+        Context context = getContext();
+        if (context == null) return;
+        SharedPreferences prefs = context.getSharedPreferences(RestTimerReceiver.PREFS_NAME, Context.MODE_PRIVATE);
+        long endsAt = prefs.getLong(RestTimerReceiver.PREF_ENDS_AT, 0);
+        boolean isSkipped = prefs.getBoolean(RestTimerReceiver.PREF_SKIPPED, false);
+
+        if (!isSkipped && endsAt > System.currentTimeMillis()) {
+            String title = prefs.getString(RestTimerReceiver.PREF_TITLE, "Descanso");
+            String body = prefs.getString(RestTimerReceiver.PREF_BODY, "");
+            String add15Label = prefs.getString(RestTimerReceiver.PREF_ADD15_LABEL, "+15s");
+            String skipLabel = prefs.getString(RestTimerReceiver.PREF_SKIP_LABEL, "Saltar");
+
+            RestTimerReceiver.showCountdownNotification(context, endsAt, title, body, add15Label, skipLabel);
+            RestTimerReceiver.scheduleFinishedAlarm(context, endsAt);
+        }
+    }
+
     @PluginMethod
-    public void show(PluginCall call) {
+    public void setRestTimer(PluginCall call) {
         Double endsAtVal = call.getDouble("endsAt");
         if (endsAtVal == null) {
             call.reject("endsAt is required");
@@ -64,6 +104,20 @@ public class RestTimerPlugin extends Plugin {
             .putBoolean(RestTimerReceiver.PREF_SKIPPED, false)
             .apply();
 
+        call.resolve();
+    }
+
+    @PluginMethod
+    public void show(PluginCall call) {
+        setRestTimer(call);
+        Context context = getContext();
+        SharedPreferences prefs = context.getSharedPreferences(RestTimerReceiver.PREFS_NAME, Context.MODE_PRIVATE);
+        long endsAt = prefs.getLong(RestTimerReceiver.PREF_ENDS_AT, 0);
+        String title = prefs.getString(RestTimerReceiver.PREF_TITLE, "Descanso");
+        String body = prefs.getString(RestTimerReceiver.PREF_BODY, "");
+        String add15Label = prefs.getString(RestTimerReceiver.PREF_ADD15_LABEL, "+15s");
+        String skipLabel = prefs.getString(RestTimerReceiver.PREF_SKIP_LABEL, "Saltar");
+
         RestTimerReceiver.showCountdownNotification(context, endsAt, title, body, add15Label, skipLabel);
         RestTimerReceiver.scheduleFinishedAlarm(context, endsAt);
 
@@ -73,6 +127,8 @@ public class RestTimerPlugin extends Plugin {
     @PluginMethod
     public void clear(PluginCall call) {
         Context context = getContext();
+        SharedPreferences prefs = context.getSharedPreferences(RestTimerReceiver.PREFS_NAME, Context.MODE_PRIVATE);
+        prefs.edit().putBoolean(RestTimerReceiver.PREF_SKIPPED, true).apply();
         RestTimerReceiver.cancelCountdown(context);
         call.resolve();
     }

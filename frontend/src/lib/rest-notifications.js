@@ -17,6 +17,25 @@ async function getRestTimerPlugin() {
   }
 }
 
+export async function setRestTimer(timer) {
+  if (!timer || !(timer.endsAt > Date.now())) return
+  if (MOBILE) {
+    try {
+      const plugin = await getRestTimerPlugin()
+      if (!plugin) return
+      await plugin.setRestTimer({
+        endsAt: timer.endsAt,
+        title: t('Rest timer'),
+        body: t('Rest'),
+        add15Label: '+15s',
+        skipLabel: t('Skip'),
+        finishedTitle: t('Rest over — next set!'),
+        finishedBody: 'openGym'
+      })
+    } catch {}
+  }
+}
+
 export async function showRestNotification(timer) {
   if (!timer || !(timer.endsAt > Date.now())) return
 

@@ -1,6 +1,7 @@
 package ch.duartesantos.opengym;
 
 import android.app.AlarmManager;
+import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
@@ -11,11 +12,14 @@ import android.content.SharedPreferences;
 import android.media.RingtoneManager;
 import android.net.Uri;
 import android.os.Build;
+import android.util.Log;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
 import com.getcapacitor.JSObject;
 
 public class RestTimerReceiver extends BroadcastReceiver {
+    private static final String TAG = "RestTimerReceiver";
+
     public static final String ACTION_ADD_15 = "ch.duartesantos.opengym.ACTION_ADD_15";
     public static final String ACTION_SKIP = "ch.duartesantos.opengym.ACTION_SKIP";
     public static final String ACTION_FINISHED = "ch.duartesantos.opengym.ACTION_FINISHED";
@@ -83,6 +87,17 @@ public class RestTimerReceiver extends BroadcastReceiver {
         }
     }
 
+    public static int getNotificationSmallIcon(Context context) {
+        int resId = context.getResources().getIdentifier("ic_stat_rest_timer", "drawable", context.getPackageName());
+        if (resId == 0) {
+            resId = context.getResources().getIdentifier("ic_stat_icon", "drawable", context.getPackageName());
+        }
+        if (resId == 0) {
+            resId = android.R.drawable.ic_dialog_info;
+        }
+        return resId;
+    }
+
     public static void createNotificationChannels(Context context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationManager nm = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
@@ -91,12 +106,13 @@ public class RestTimerReceiver extends BroadcastReceiver {
             NotificationChannel countdownChannel = new NotificationChannel(
                 CHANNEL_ID_COUNTDOWN,
                 "Rest Countdown",
-                NotificationManager.IMPORTANCE_LOW
+                NotificationManager.IMPORTANCE_DEFAULT
             );
             countdownChannel.setDescription("Shows active rest timer countdown");
-            countdownChannel.setShowBadge(false);
+            countdownChannel.setShowBadge(true);
             countdownChannel.setSound(null, null);
             countdownChannel.enableVibration(false);
+            countdownChannel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
             nm.createNotificationChannel(countdownChannel);
 
             NotificationChannel finishedChannel = new NotificationChannel(
@@ -108,6 +124,7 @@ public class RestTimerReceiver extends BroadcastReceiver {
             finishedChannel.setShowBadge(true);
             finishedChannel.enableVibration(true);
             finishedChannel.setVibrationPattern(new long[]{0, 250, 150, 250});
+            finishedChannel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
             nm.createNotificationChannel(finishedChannel);
         }
     }
@@ -116,6 +133,8 @@ public class RestTimerReceiver extends BroadcastReceiver {
         createNotificationChannels(context);
 
         Intent openIntent = new Intent(context, MainActivity.class);
+        openIntent.setAction(Intent.ACTION_MAIN);
+        openIntent.addCategory(Intent.CATEGORY_LAUNCHER);
         openIntent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
         PendingIntent contentPendingIntent = PendingIntent.getActivity(
             context,
@@ -142,7 +161,7 @@ public class RestTimerReceiver extends BroadcastReceiver {
             PendingIntent.FLAG_UPDATE_CURRENT | (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? PendingIntent.FLAG_IMMUTABLE : 0)
         );
 
-        int icon = context.getApplicationInfo().icon != 0 ? context.getApplicationInfo().icon : android.R.drawable.ic_lock_idle_alarm;
+        int icon = getNotificationSmallIcon(context);
 
         NotificationCompat.Builder builder = new NotificationCompat.Builder(context, CHANNEL_ID_COUNTDOWN)
             .setSmallIcon(icon)
@@ -155,20 +174,25 @@ public class RestTimerReceiver extends BroadcastReceiver {
             .setShowWhen(true)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setCategory(NotificationCompat.CATEGORY_PROGRESS)
             .addAction(0, add15Label, add15PendingIntent)
             .addAction(0, skipLabel, skipPendingIntent);
 
         try {
             NotificationManagerCompat.from(context).notify(NOTIFICATION_ID_COUNTDOWN, builder.build());
-        } catch (SecurityException ignored) {}
+        } catch (Throwable e) {
+            Log.e(TAG, "Failed to show countdown notification", e);
+        }
     }
 
     public static void showFinishedNotification(Context context, String title, String body) {
         createNotificationChannels(context);
 
         Intent openIntent = new Intent(context, MainActivity.class);
+        openIntent.setAction(Intent.ACTION_MAIN);
+        openIntent.addCategory(Intent.CATEGORY_LAUNCHER);
         openIntent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
         PendingIntent contentPendingIntent = PendingIntent.getActivity(
             context,
@@ -177,7 +201,7 @@ public class RestTimerReceiver extends BroadcastReceiver {
             PendingIntent.FLAG_UPDATE_CURRENT | (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? PendingIntent.FLAG_IMMUTABLE : 0)
         );
 
-        int icon = context.getApplicationInfo().icon != 0 ? context.getApplicationInfo().icon : android.R.drawable.ic_lock_idle_alarm;
+        int icon = getNotificationSmallIcon(context);
         Uri defaultSound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
 
         NotificationCompat.Builder builder = new NotificationCompat.Builder(context, CHANNEL_ID_FINISHED)
@@ -186,6 +210,7 @@ public class RestTimerReceiver extends BroadcastReceiver {
             .setContentText(body)
             .setContentIntent(contentPendingIntent)
             .setAutoCancel(true)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setSound(defaultSound)
             .setVibrate(new long[]{0, 250, 150, 250})
@@ -193,7 +218,9 @@ public class RestTimerReceiver extends BroadcastReceiver {
 
         try {
             NotificationManagerCompat.from(context).notify(NOTIFICATION_ID_FINISHED, builder.build());
-        } catch (SecurityException ignored) {}
+        } catch (Throwable e) {
+            Log.e(TAG, "Failed to show finished notification", e);
+        }
     }
 
     public static void scheduleFinishedAlarm(Context context, long endsAt) {
