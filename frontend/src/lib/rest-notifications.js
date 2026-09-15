@@ -36,49 +36,60 @@ export async function setRestTimer(timer) {
     try {
       const plugin = await getRestTimerPlugin()
       if (!plugin) return
+      const left = Math.max(0, Math.round((timer.endsAt - Date.now()) / 1000))
+      const total = Math.max(left, Math.round(timer.total || left))
       await plugin.setRestTimer({
-        endsAt: timer.endsAt,
-        title: t('Rest timer'),
-        body: t('Rest'),
+        endsAt: Math.round(timer.endsAt),
+        total,
+        title: t('Rest'),
+        body: clock(left),
+        sub15Label: '-15s',
         add15Label: '+15s',
         skipLabel: t('Skip'),
         finishedTitle: t('Rest over — next set!'),
         finishedBody: 'openGym'
       })
-    } catch {}
+    } catch (e) {
+      console.error('Failed to setRestTimer', e)
+    }
   }
 }
 
 export async function showRestNotification(timer) {
   if (!timer || !(timer.endsAt > Date.now())) return
 
+  const left = Math.max(0, Math.round((timer.endsAt - Date.now()) / 1000))
+  const total = Math.max(left, Math.round(timer.total || left))
+
   if (MOBILE) {
     try {
       const plugin = await getRestTimerPlugin()
       if (!plugin) return
       await plugin.show({
-        endsAt: timer.endsAt,
-        title: t('Rest timer'),
-        body: t('Rest'),
+        endsAt: Math.round(timer.endsAt),
+        total,
+        title: t('Rest'),
+        body: clock(left),
+        sub15Label: '-15s',
         add15Label: '+15s',
         skipLabel: t('Skip'),
         finishedTitle: t('Rest over — next set!'),
         finishedBody: 'openGym'
       })
-    } catch {
-      // Best effort fallback
+    } catch (e) {
+      console.error('Failed to showRestNotification', e)
     }
     return
   }
 
   // Web / PWA notification
   if (typeof Notification !== 'undefined' && Notification.permission === 'granted' && typeof navigator !== 'undefined') {
-    const left = Math.max(0, Math.round((timer.endsAt - Date.now()) / 1000))
     const body = `${clock(left)} (${t('Rest')})`
     const payload = {
       type: 'SHOW_REST_NOTIFICATION',
-      title: 'openGym — ' + t('Rest timer'),
+      title: 'openGym — ' + t('Rest'),
       body,
+      sub15Label: '-15s',
       add15Label: '+15s',
       skipLabel: t('Skip'),
       endsAt: timer.endsAt
@@ -97,6 +108,7 @@ export async function showRestNotification(timer) {
             tag: 'rest-timer-ongoing',
             renotify: false,
             actions: [
+              { action: 'sub15', title: payload.sub15Label },
               { action: 'add15', title: payload.add15Label },
               { action: 'skip', title: payload.skipLabel }
             ]

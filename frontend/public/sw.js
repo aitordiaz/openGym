@@ -57,6 +57,12 @@ self.addEventListener('notificationclick', e => {
     }))
     return
   }
+  if (e.action === 'sub15') {
+    e.waitUntil(self.clients.matchAll({ type: 'window' }).then(clients => {
+      for (const c of clients) c.postMessage({ type: 'REST_TIMER_ADD', sec: -15 })
+    }))
+    return
+  }
   if (e.action === 'add15') {
     e.waitUntil(self.clients.matchAll({ type: 'window' }).then(clients => {
       for (const c of clients) c.postMessage({ type: 'REST_TIMER_ADD', sec: 15 })
@@ -72,8 +78,9 @@ self.addEventListener('notificationclick', e => {
 
 self.addEventListener('message', e => {
   if (e.data?.type === 'SHOW_REST_NOTIFICATION') {
-    const { title, body, add15Label, skipLabel } = e.data
+    const { title, body, sub15Label, add15Label, skipLabel } = e.data
     const actions = []
+    if (sub15Label) actions.push({ action: 'sub15', title: sub15Label })
     if (add15Label) actions.push({ action: 'add15', title: add15Label })
     if (skipLabel) actions.push({ action: 'skip', title: skipLabel })
     e.waitUntil(

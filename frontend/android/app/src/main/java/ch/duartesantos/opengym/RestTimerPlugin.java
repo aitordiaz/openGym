@@ -75,12 +75,13 @@ public class RestTimerPlugin extends Plugin {
         Log.i(TAG, "checkAndShowBackgroundNotification: endsAt=" + endsAt + ", now=" + now + ", isSkipped=" + isSkipped);
 
         if (!isSkipped && endsAt > now) {
+            long total = prefs.getLong(RestTimerReceiver.PREF_TOTAL, Math.max(0, (endsAt - now) / 1000));
             String title = prefs.getString(RestTimerReceiver.PREF_TITLE, "Descanso");
-            String body = prefs.getString(RestTimerReceiver.PREF_BODY, "");
+            String sub15Label = prefs.getString(RestTimerReceiver.PREF_SUB15_LABEL, "-15s");
             String add15Label = prefs.getString(RestTimerReceiver.PREF_ADD15_LABEL, "+15s");
             String skipLabel = prefs.getString(RestTimerReceiver.PREF_SKIP_LABEL, "Saltar");
 
-            RestTimerReceiver.showCountdownNotification(context, endsAt, title, body, add15Label, skipLabel);
+            RestTimerReceiver.showCountdownNotification(context, endsAt, total, title, sub15Label, add15Label, skipLabel);
             RestTimerReceiver.scheduleFinishedAlarm(context, endsAt);
         }
     }
@@ -88,6 +89,21 @@ public class RestTimerPlugin extends Plugin {
     private long getEndsAtFromCall(PluginCall call) {
         if (call == null || call.getData() == null) return 0;
         Object obj = call.getData().opt("endsAt");
+        if (obj instanceof Number) {
+            return ((Number) obj).longValue();
+        } else if (obj instanceof String) {
+            try {
+                return Long.parseLong((String) obj);
+            } catch (NumberFormatException e) {
+                return 0;
+            }
+        }
+        return 0;
+    }
+
+    private long getTotalFromCall(PluginCall call) {
+        if (call == null || call.getData() == null) return 0;
+        Object obj = call.getData().opt("total");
         if (obj instanceof Number) {
             return ((Number) obj).longValue();
         } else if (obj instanceof String) {
@@ -109,21 +125,29 @@ public class RestTimerPlugin extends Plugin {
             return;
         }
 
+        long total = getTotalFromCall(call);
+        if (total <= 0) {
+            total = Math.max(0, (endsAt - System.currentTimeMillis()) / 1000);
+        }
+
         String title = call.getString("title", "Descanso");
         String body = call.getString("body", "");
+        String sub15Label = call.getString("sub15Label", "-15s");
         String add15Label = call.getString("add15Label", "+15s");
         String skipLabel = call.getString("skipLabel", "Saltar");
         String finishedTitle = call.getString("finishedTitle", "¡Descanso terminado — siguiente serie!");
         String finishedBody = call.getString("finishedBody", "openGym");
 
-        Log.i(TAG, "setRestTimer accepted: endsAt=" + endsAt + " (" + ((endsAt - System.currentTimeMillis()) / 1000) + "s remaining)");
+        Log.i(TAG, "setRestTimer accepted: endsAt=" + endsAt + " (" + ((endsAt - System.currentTimeMillis()) / 1000) + "s remaining, total=" + total + "s)");
 
         Context context = getContext();
         SharedPreferences prefs = context.getSharedPreferences(RestTimerReceiver.PREFS_NAME, Context.MODE_PRIVATE);
         prefs.edit()
             .putLong(RestTimerReceiver.PREF_ENDS_AT, endsAt)
+            .putLong(RestTimerReceiver.PREF_TOTAL, total)
             .putString(RestTimerReceiver.PREF_TITLE, title)
             .putString(RestTimerReceiver.PREF_BODY, body)
+            .putString(RestTimerReceiver.PREF_SUB15_LABEL, sub15Label)
             .putString(RestTimerReceiver.PREF_ADD15_LABEL, add15Label)
             .putString(RestTimerReceiver.PREF_SKIP_LABEL, skipLabel)
             .putString(RestTimerReceiver.PREF_FINISHED_TITLE, finishedTitle)
@@ -144,12 +168,13 @@ public class RestTimerPlugin extends Plugin {
         }
         SharedPreferences prefs = context.getSharedPreferences(RestTimerReceiver.PREFS_NAME, Context.MODE_PRIVATE);
         long endsAt = prefs.getLong(RestTimerReceiver.PREF_ENDS_AT, 0);
+        long total = prefs.getLong(RestTimerReceiver.PREF_TOTAL, 0);
         String title = prefs.getString(RestTimerReceiver.PREF_TITLE, "Descanso");
-        String body = prefs.getString(RestTimerReceiver.PREF_BODY, "");
+        String sub15Label = prefs.getString(RestTimerReceiver.PREF_SUB15_LABEL, "-15s");
         String add15Label = prefs.getString(RestTimerReceiver.PREF_ADD15_LABEL, "+15s");
         String skipLabel = prefs.getString(RestTimerReceiver.PREF_SKIP_LABEL, "Saltar");
 
-        RestTimerReceiver.showCountdownNotification(context, endsAt, title, body, add15Label, skipLabel);
+        RestTimerReceiver.showCountdownNotification(context, endsAt, total, title, sub15Label, add15Label, skipLabel);
         RestTimerReceiver.scheduleFinishedAlarm(context, endsAt);
 
         call.resolve();
