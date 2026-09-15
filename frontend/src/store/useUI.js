@@ -4,6 +4,7 @@ import { beep, vibrate } from '../lib/sound.js'
 import { api } from '../lib/api.js'
 import { t } from '../lib/i18n.js'
 import { deviceId } from '../lib/push.js'
+import { showRestNotification, clearRestNotification, initRestNotifications } from '../lib/rest-notifications.js'
 import { useStore } from './useStore.js'
 
 // Fire-and-forget: lets the server push a "rest over" alert if this tab gets suspended
@@ -100,9 +101,13 @@ export const useUI = create((set, get) => ({
     // keeps every caller honest: the four places that start a rest do not each need to know.
     if (!(sec > 0)) return
     const endsAt = Date.now() + sec * 1000
-    set({ timer: { left: sec, total: sec, endsAt, forIdx } })
+    const newTimer = { left: sec, total: sec, endsAt, forIdx }
+    set({ timer: newTimer })
     requestRestNotificationPermission()
     pushRestTimer(sec)
+    if (typeof document !== 'undefined' && document.hidden) {
+      showRestNotification(newTimer)
+    }
     timerTick = () => {
       const tm = get().timer
       if (!tm) return
@@ -135,8 +140,12 @@ export const useUI = create((set, get) => ({
     // taking off more than is left means "I'm ready now" — same as skipping, and it keeps a
     // negative duration out of both the progress bar and the server-side push schedule
     if (left <= 0) { get().stopRest(); return }
-    set({ timer: { ...tm, left, total: tm.total + sec, endsAt: tm.endsAt + sec * 1000 } })
+    const updated = { ...tm, left, total: tm.total + sec, endsAt: tm.endsAt + sec * 1000 }
+    set({ timer: updated })
     pushRestTimer(left)
+    if (typeof document !== 'undefined' && document.hidden) {
+      showRestNotification(updated)
+    }
   },
   // The active list changed shape (an exercise removed or inserted at `at`): keep the rest
   // pointing at the same exercise. Returns nothing; the caller decides whether to stop instead.
@@ -149,6 +158,7 @@ export const useUI = create((set, get) => ({
     if (timerInt) clearInterval(timerInt); timerInt = null
     if (timerTick) document.removeEventListener('visibilitychange', timerTick); timerTick = null
     if (get().timer) cancelPushRestTimer()
+    clearRestNotification()
     set({ timer: null })
   },
 
@@ -209,3 +219,5 @@ export const useUI = create((set, get) => ({
     set({ work: null })
   }
 }))
+
+initRestNotifications(useUI)
