@@ -60,14 +60,14 @@ public class RestTimerReceiver extends BroadcastReceiver {
                 JSObject data = new JSObject();
                 data.put("endsAt", (double) endsAt);
                 data.put("added", 15);
-                RestTimerPlugin.instance.notifyListeners("timerAdjusted", data);
+                RestTimerPlugin.instance.onTimerAdjusted(data);
             }
         } else if (ACTION_SKIP.equals(action)) {
             prefs.edit().putBoolean(PREF_SKIPPED, true).apply();
             cancelCountdown(context);
 
             if (RestTimerPlugin.instance != null) {
-                RestTimerPlugin.instance.notifyListeners("timerSkipped", new JSObject());
+                RestTimerPlugin.instance.onTimerSkipped();
             }
         } else if (ACTION_FINISHED.equals(action)) {
             cancelCountdownNotification(context);
@@ -78,7 +78,7 @@ public class RestTimerReceiver extends BroadcastReceiver {
             showFinishedNotification(context, finishedTitle, finishedBody);
 
             if (RestTimerPlugin.instance != null) {
-                RestTimerPlugin.instance.notifyListeners("timerFinished", new JSObject());
+                RestTimerPlugin.instance.onTimerFinished();
             }
         }
     }

@@ -89,4 +89,16 @@ public class RestTimerPlugin extends Plugin {
         ret.put("isSkipped", isSkipped);
         call.resolve(ret);
     }
+
+    public void onTimerAdjusted(JSObject data) {
+        notifyListeners("timerAdjusted", data);
+    }
+
+    public void onTimerSkipped() {
+        notifyListeners("timerSkipped", new JSObject());
+    }
+
+    public void onTimerFinished() {
+        notifyListeners("timerFinished", new JSObject());
+    }
 }
