@@ -67,4 +67,9 @@ describe('rest-notifications', () => {
     Object.defineProperty(document, 'hidden', { value: false, configurable: true })
     document.dispatchEvent(new Event('visibilitychange'))
   })
+
+  it('requestNotificationPermission runs safely in web environment', async () => {
+    const { requestNotificationPermission } = await import('./rest-notifications.js')
+    await requestNotificationPermission()
+  })
 })

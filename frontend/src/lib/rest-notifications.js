@@ -164,12 +164,41 @@ export function setupRestNotificationListeners(store) {
   }
 }
 
+export async function requestNotificationPermission() {
+  if (MOBILE) {
+    try {
+      const { LocalNotifications } = await import('@capacitor/local-notifications')
+      const status = await LocalNotifications.checkPermissions()
+      if (status.display !== 'granted') {
+        await LocalNotifications.requestPermissions()
+      }
+    } catch {
+      try {
+        const plugin = await getRestTimerPlugin()
+        if (plugin?.requestPermissions) {
+          await plugin.requestPermissions()
+        }
+      } catch {}
+    }
+    return
+  }
+
+  if (typeof Notification !== 'undefined' && typeof Notification.requestPermission === 'function') {
+    try {
+      if (Notification.permission === 'default') {
+        await Notification.requestPermission()
+      }
+    } catch {}
+  }
+}
+
 let initialized = false
 export function initRestNotifications(store) {
   if (initialized || typeof document === 'undefined') return
   initialized = true
 
   setupRestNotificationListeners(store)
+  requestNotificationPermission().catch(() => {})
 
   const onHidden = () => {
     const timer = store.getState().timer

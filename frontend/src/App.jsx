@@ -12,6 +12,7 @@ import { useWakeLock } from './lib/wakelock.js'
 import { installViewportGuard } from './lib/viewport-guard.js'
 import { installChipDrag } from './lib/hchips.js'
 import { syncPushSubscription } from './lib/push.js'
+import { requestNotificationPermission } from './lib/rest-notifications.js'
 import { MOBILE } from './lib/mobile.js'
 import { startFlow } from './sheets.jsx'
 import Icon from './components/Icon.jsx'
@@ -91,6 +92,8 @@ function Shell() {
   // Click-drag a horizontal chip strip to scroll it sideways (lib/hchips.js) — on a desktop
   // browser there's otherwise no way to reach the filters past the edge.
   useEffect(() => installChipDrag(), [])
+  // Request notification permissions at launch so workout reminders and rest timer notifications work
+  useEffect(() => { requestNotificationPermission().catch(() => {}) }, [])
   // Once per signed-in boot, hand the server this browser's push subscription again (see
   // lib/push.js): a subscription the instance lost is back before the next reminder is due,
   // with nobody having to visit Settings. Web only — the APK has no service worker.
