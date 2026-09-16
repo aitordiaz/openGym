@@ -21,7 +21,7 @@ export default function RestTimer() {
     return () => document.body.classList.remove('resting')
   }, [!!on])
   if (!on) return null
-  const pct = (on.left / on.total) * 100
+  const pct = Math.min(100, Math.max(0, (on.left / on.total) * 100))
 
   if (work) return (
     <div id="timer" className="working">

@@ -71,8 +71,8 @@ public class RestTimerReceiver extends BroadcastReceiver {
                     RestTimerPlugin.instance.onTimerSkipped();
                 }
             } else {
-                long total = Math.max(1, prefs.getLong(PREF_TOTAL, 0) - 15);
-                prefs.edit().putLong(PREF_ENDS_AT, endsAt).putLong(PREF_TOTAL, total).putBoolean(PREF_SKIPPED, false).apply();
+                long total = prefs.getLong(PREF_TOTAL, 0);
+                prefs.edit().putLong(PREF_ENDS_AT, endsAt).putBoolean(PREF_SKIPPED, false).apply();
                 String title = prefs.getString(PREF_TITLE, "Descanso");
                 String sub15Label = prefs.getString(PREF_SUB15_LABEL, "-15s");
                 String add15Label = prefs.getString(PREF_ADD15_LABEL, "+15s");
@@ -92,7 +92,9 @@ public class RestTimerReceiver extends BroadcastReceiver {
             long endsAt = prefs.getLong(PREF_ENDS_AT, 0);
             if (endsAt <= 0) endsAt = System.currentTimeMillis();
             endsAt += 15000;
-            long total = prefs.getLong(PREF_TOTAL, 0) + 15;
+            long now = System.currentTimeMillis();
+            int leftSeconds = (int) Math.max(0, (endsAt - now + 999) / 1000);
+            long total = Math.max(prefs.getLong(PREF_TOTAL, 0), leftSeconds);
             prefs.edit().putLong(PREF_ENDS_AT, endsAt).putLong(PREF_TOTAL, total).putBoolean(PREF_SKIPPED, false).apply();
 
             String title = prefs.getString(PREF_TITLE, "Descanso");

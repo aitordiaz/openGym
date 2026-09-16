@@ -176,7 +176,8 @@ export async function syncRestTimerFromNative(store) {
       if (left <= 0) {
         store.getState().stopRest()
       } else {
-        store.setState({ timer: { ...current, endsAt, left } })
+        const total = Math.max(current.total || left, left)
+        store.setState({ timer: { ...current, endsAt, left, total } })
       }
     }
   } catch {}
@@ -198,7 +199,8 @@ export function setupRestNotificationListeners(store) {
           if (current) {
             const endsAt = Math.round(data.endsAt)
             const left = Math.max(0, Math.round((endsAt - Date.now()) / 1000))
-            store.setState({ timer: { ...current, endsAt, left } })
+            const total = Math.max(current.total || left, left)
+            store.setState({ timer: { ...current, endsAt, left, total } })
           }
         }
       })

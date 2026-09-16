@@ -148,7 +148,8 @@ export const useUI = create((set, get) => ({
     // taking off more than is left means "I'm ready now" — same as skipping, and it keeps a
     // negative duration out of both the progress bar and the server-side push schedule
     if (left <= 0) { get().stopRest(); return }
-    const updated = { ...tm, left, total: tm.total + sec, endsAt: tm.endsAt + sec * 1000 }
+    const total = Math.max(tm.total || left, left)
+    const updated = { ...tm, left, total, endsAt: tm.endsAt + sec * 1000 }
     set({ timer: updated })
     pushRestTimer(left)
     setRestTimer(updated)
