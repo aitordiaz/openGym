@@ -1,0 +1,231 @@
+package ch.duartesantos.opengym;
+
+import android.Manifest;
+import android.content.Context;
+import android.content.SharedPreferences;
+import android.util.Log;
+import com.getcapacitor.JSObject;
+import com.getcapacitor.Plugin;
+import com.getcapacitor.PluginCall;
+import com.getcapacitor.PluginMethod;
+import com.getcapacitor.annotation.CapacitorPlugin;
+import com.getcapacitor.annotation.Permission;
+
+@CapacitorPlugin(
+    name = "RestTimer",
+    permissions = {
+        @Permission(
+            alias = "notifications",
+            strings = { Manifest.permission.POST_NOTIFICATIONS }
+        )
+    }
+)
+public class RestTimerPlugin extends Plugin {
+    private static final String TAG = "RestTimerPlugin";
+    public static RestTimerPlugin instance;
+
+    @Override
+    public void load() {
+        super.load();
+        instance = this;
+        Log.i(TAG, "RestTimerPlugin loaded");
+    }
+
+    @Override
+    protected void handleOnDestroy() {
+        if (instance == this) {
+            instance = null;
+        }
+        super.handleOnDestroy();
+    }
+
+    @Override
+    protected void handleOnPause() {
+        super.handleOnPause();
+        Log.i(TAG, "handleOnPause called");
+        checkAndShowBackgroundNotification();
+    }
+
+    @Override
+    protected void handleOnStop() {
+        super.handleOnStop();
+        Log.i(TAG, "handleOnStop called");
+        checkAndShowBackgroundNotification();
+    }
+
+    @Override
+    protected void handleOnResume() {
+        super.handleOnResume();
+        Log.i(TAG, "handleOnResume called");
+        // Clear countdown notification from tray when returning to foreground
+        Context context = getContext();
+        if (context != null) {
+            RestTimerReceiver.cancelCountdownNotification(context);
+        }
+    }
+
+    private void checkAndShowBackgroundNotification() {
+        Context context = getContext();
+        if (context == null) return;
+        SharedPreferences prefs = context.getSharedPreferences(RestTimerReceiver.PREFS_NAME, Context.MODE_PRIVATE);
+        long endsAt = prefs.getLong(RestTimerReceiver.PREF_ENDS_AT, 0);
+        boolean isSkipped = prefs.getBoolean(RestTimerReceiver.PREF_SKIPPED, false);
+        long now = System.currentTimeMillis();
+
+        Log.i(TAG, "checkAndShowBackgroundNotification: endsAt=" + endsAt + ", now=" + now + ", isSkipped=" + isSkipped);
+
+        if (!isSkipped && endsAt > now) {
+            long total = prefs.getLong(RestTimerReceiver.PREF_TOTAL, Math.max(0, (endsAt - now) / 1000));
+            String title = prefs.getString(RestTimerReceiver.PREF_TITLE, "Descanso");
+            String sub15Label = prefs.getString(RestTimerReceiver.PREF_SUB15_LABEL, "-15s");
+            String add15Label = prefs.getString(RestTimerReceiver.PREF_ADD15_LABEL, "+15s");
+            String skipLabel = prefs.getString(RestTimerReceiver.PREF_SKIP_LABEL, "Saltar");
+
+            RestTimerReceiver.showCountdownNotification(context, endsAt, total, title, sub15Label, add15Label, skipLabel);
+            RestTimerReceiver.scheduleFinishedAlarm(context, endsAt);
+        }
+    }
+
+    private long getEndsAtFromCall(PluginCall call) {
+        if (call == null || call.getData() == null) return 0;
+        Object obj = call.getData().opt("endsAt");
+        if (obj instanceof Number) {
+            return ((Number) obj).longValue();
+        } else if (obj instanceof String) {
+            try {
+                return Long.parseLong((String) obj);
+            } catch (NumberFormatException e) {
+                return 0;
+            }
+        }
+        return 0;
+    }
+
+    private long getTotalFromCall(PluginCall call) {
+        if (call == null || call.getData() == null) return 0;
+        Object obj = call.getData().opt("total");
+        if (obj instanceof Number) {
+            return ((Number) obj).longValue();
+        } else if (obj instanceof String) {
+            try {
+                return Long.parseLong((String) obj);
+            } catch (NumberFormatException e) {
+                return 0;
+            }
+        }
+        return 0;
+    }
+
+    @PluginMethod
+    public void setRestTimer(PluginCall call) {
+        long endsAt = getEndsAtFromCall(call);
+        if (endsAt <= 0) {
+            Log.e(TAG, "setRestTimer rejected: endsAt missing or non-positive");
+            call.reject("endsAt is required");
+            return;
+        }
+
+        long total = getTotalFromCall(call);
+        if (total <= 0) {
+            total = Math.max(0, (endsAt - System.currentTimeMillis()) / 1000);
+        }
+
+        String title = call.getString("title", "Descanso");
+        String body = call.getString("body", "");
+        String sub15Label = call.getString("sub15Label", "-15s");
+        String add15Label = call.getString("add15Label", "+15s");
+        String skipLabel = call.getString("skipLabel", "Saltar");
+        String finishedTitle = call.getString("finishedTitle", "¡Descanso terminado — siguiente serie!");
+        String finishedBody = call.getString("finishedBody", "openGym");
+
+        Log.i(TAG, "setRestTimer accepted: endsAt=" + endsAt + " (" + ((endsAt - System.currentTimeMillis()) / 1000) + "s remaining, total=" + total + "s)");
+
+        Context context = getContext();
+        SharedPreferences prefs = context.getSharedPreferences(RestTimerReceiver.PREFS_NAME, Context.MODE_PRIVATE);
+        prefs.edit()
+            .putLong(RestTimerReceiver.PREF_ENDS_AT, endsAt)
+            .putLong(RestTimerReceiver.PREF_TOTAL, total)
+            .putString(RestTimerReceiver.PREF_TITLE, title)
+            .putString(RestTimerReceiver.PREF_BODY, body)
+            .putString(RestTimerReceiver.PREF_SUB15_LABEL, sub15Label)
+            .putString(RestTimerReceiver.PREF_ADD15_LABEL, add15Label)
+            .putString(RestTimerReceiver.PREF_SKIP_LABEL, skipLabel)
+            .putString(RestTimerReceiver.PREF_FINISHED_TITLE, finishedTitle)
+            .putString(RestTimerReceiver.PREF_FINISHED_BODY, finishedBody)
+            .putBoolean(RestTimerReceiver.PREF_SKIPPED, false)
+            .apply();
+
+        call.resolve();
+    }
+
+    @PluginMethod
+    public void show(PluginCall call) {
+        setRestTimer(call);
+        Context context = getContext();
+        if (context == null) {
+            call.resolve();
+            return;
+        }
+        SharedPreferences prefs = context.getSharedPreferences(RestTimerReceiver.PREFS_NAME, Context.MODE_PRIVATE);
+        long endsAt = prefs.getLong(RestTimerReceiver.PREF_ENDS_AT, 0);
+        long total = prefs.getLong(RestTimerReceiver.PREF_TOTAL, 0);
+        String title = prefs.getString(RestTimerReceiver.PREF_TITLE, "Descanso");
+        String sub15Label = prefs.getString(RestTimerReceiver.PREF_SUB15_LABEL, "-15s");
+        String add15Label = prefs.getString(RestTimerReceiver.PREF_ADD15_LABEL, "+15s");
+        String skipLabel = prefs.getString(RestTimerReceiver.PREF_SKIP_LABEL, "Saltar");
+
+        RestTimerReceiver.showCountdownNotification(context, endsAt, total, title, sub15Label, add15Label, skipLabel);
+        RestTimerReceiver.scheduleFinishedAlarm(context, endsAt);
+
+        call.resolve();
+    }
+
+    @PluginMethod
+    public void dismiss(PluginCall call) {
+        Context context = getContext();
+        if (context != null) {
+            RestTimerReceiver.cancelCountdownNotification(context);
+        }
+        call.resolve();
+    }
+
+    @PluginMethod
+    public void clear(PluginCall call) {
+        Context context = getContext();
+        if (context != null) {
+            SharedPreferences prefs = context.getSharedPreferences(RestTimerReceiver.PREFS_NAME, Context.MODE_PRIVATE);
+            prefs.edit().putBoolean(RestTimerReceiver.PREF_SKIPPED, true).apply();
+            RestTimerReceiver.cancelCountdown(context);
+        }
+        call.resolve();
+    }
+
+    @PluginMethod
+    public void getState(PluginCall call) {
+        Context context = getContext();
+        long endsAt = 0;
+        boolean isSkipped = false;
+        if (context != null) {
+            SharedPreferences prefs = context.getSharedPreferences(RestTimerReceiver.PREFS_NAME, Context.MODE_PRIVATE);
+            endsAt = prefs.getLong(RestTimerReceiver.PREF_ENDS_AT, 0);
+            isSkipped = prefs.getBoolean(RestTimerReceiver.PREF_SKIPPED, false);
+        }
+
+        JSObject ret = new JSObject();
+        ret.put("endsAt", (double) endsAt);
+        ret.put("isSkipped", isSkipped);
+        call.resolve(ret);
+    }
+
+    public void onTimerAdjusted(JSObject data) {
+        notifyListeners("timerAdjusted", data);
+    }
+
+    public void onTimerSkipped() {
+        notifyListeners("timerSkipped", new JSObject());
+    }
+
+    public void onTimerFinished() {
+        notifyListeners("timerFinished", new JSObject());
+    }
+}

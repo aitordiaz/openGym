@@ -50,11 +50,56 @@ self.addEventListener('push', e => {
   })())
 })
 self.addEventListener('notificationclick', e => {
+  if (e.action === 'skip') {
+    e.notification.close()
+    e.waitUntil(self.clients.matchAll({ type: 'window' }).then(clients => {
+      for (const c of clients) c.postMessage({ type: 'REST_TIMER_SKIP' })
+    }))
+    return
+  }
+  if (e.action === 'sub15') {
+    e.waitUntil(self.clients.matchAll({ type: 'window' }).then(clients => {
+      for (const c of clients) c.postMessage({ type: 'REST_TIMER_ADD', sec: -15 })
+    }))
+    return
+  }
+  if (e.action === 'add15') {
+    e.waitUntil(self.clients.matchAll({ type: 'window' }).then(clients => {
+      for (const c of clients) c.postMessage({ type: 'REST_TIMER_ADD', sec: 15 })
+    }))
+    return
+  }
   e.notification.close()
   e.waitUntil(self.clients.matchAll({ type: 'window' }).then(clients => {
     const c = clients.find(c => 'focus' in c)
     return c ? c.focus() : self.clients.openWindow('./')
   }))
+})
+
+self.addEventListener('message', e => {
+  if (e.data?.type === 'SHOW_REST_NOTIFICATION') {
+    const { title, body, sub15Label, add15Label, skipLabel } = e.data
+    const actions = []
+    if (sub15Label) actions.push({ action: 'sub15', title: sub15Label })
+    if (add15Label) actions.push({ action: 'add15', title: add15Label })
+    if (skipLabel) actions.push({ action: 'skip', title: skipLabel })
+    e.waitUntil(
+      self.registration.showNotification(title || 'openGym', {
+        body: body || '',
+        icon: 'icon-512.png',
+        badge: 'icon-180.png',
+        tag: 'rest-timer-ongoing',
+        renotify: false,
+        actions
+      })
+    )
+  } else if (e.data?.type === 'CLEAR_REST_NOTIFICATION') {
+    e.waitUntil(
+      self.registration.getNotifications({ tag: 'rest-timer-ongoing' }).then(list => {
+        for (const n of list) n.close()
+      })
+    )
+  }
 })
 // The push service rotated the subscription (key change, expiry): subscribe again with the same
 // server key and tell the server, so the row it holds keeps pointing at this browser.
